@@ -8,24 +8,28 @@ using UnityEngine.Audio;
 using TMPro;
 using HarmonyLib;
 using System;
+using BepInEx.Logging;
 
 namespace MainMenuMusicVolumeMod
 {
     [BepInPlugin("seeya.MenuMusicControl", "Menu Music Control", "1.0.0")]
     public class MainMenuMusicVolumeMod : BaseUnityPlugin
     {
-        public ConfigEntry<float> volumeConfig;
-        public ConfigEntry<bool> disableSlider;
-        private Slider volumeSlider;
+        public static ConfigEntry<float> volumeConfig;
+        internal new static ManualLogSource Logger { get; private set; } = null;
+        public static ConfigEntry<bool> disableSlider;
+        private static Slider volumeSlider;
         private Harmony harmony;
         private bool mainMenuSliderSetup = false;
-        private AudioSource menuMusicSource;
-        private AudioMixer audioMixer;
-        private float pendingVolume = -1f;
-        private bool isDraggingSlider = false;
+        private static AudioSource menuMusicSource;
+        private static AudioMixer audioMixer;
+        private static float pendingVolume = -1f;
+        private static bool isDraggingSlider = false;
 
         public void Awake()
         {
+            Logger = base.Logger;
+            
             volumeConfig = Config.Bind(
                 "Main Menu Music",
                 "Volume",
@@ -43,44 +47,8 @@ namespace MainMenuMusicVolumeMod
             harmony = new Harmony("seeya.MenuMusicControl");
             harmony.PatchAll(typeof(MenuMusicPatches));
 
-            SceneManager.activeSceneChanged += OnSceneChanged;
-
             audioMixer = Resources.Load<AudioMixer>("MainMixer");
             ApplyVolumeToMenuMusic(volumeConfig.Value);
-        }
-
-        private void Start()
-        {
-            if (SceneManager.GetActiveScene().name == "MainMenu")
-            {
-                ApplyVolumeToMenuMusic(volumeConfig.Value);
-            }
-        }
-
-        private void OnDestroy()
-        {
-            SceneManager.activeSceneChanged -= OnSceneChanged;
-        }
-
-        private void OnSceneChanged(Scene oldScene, Scene newScene)
-        {
-            if (newScene.name != "MainMenu")
-            {
-                mainMenuSliderSetup = false;
-                volumeSlider = null;
-                if (menuMusicSource != null && volumeConfig.Value == 0f)
-                {
-                    menuMusicSource.Stop();
-                }
-                else if (menuMusicSource != null)
-                {
-                    menuMusicSource.volume = volumeConfig.Value;
-                }
-            }
-            if (newScene.name == "MainMenu" || newScene.name == "SampleSceneRelay")
-            {
-                ApplyVolumeToMenuMusic(volumeConfig.Value);
-            }
         }
 
         private void Update()
@@ -118,7 +86,7 @@ namespace MainMenuMusicVolumeMod
             }
         }
 
-        private void SetupVolumeSlider(Transform settingsPanel)
+        private static void SetupVolumeSlider(Transform settingsPanel)
         {
             if (disableSlider.Value) return;
 
@@ -202,35 +170,6 @@ namespace MainMenuMusicVolumeMod
                         pendingVolume = normalizedValue;
                         ApplyVolumeToMenuMusic(normalizedValue);
                     });
-
-                    Transform confirmButtonTransform = settingsPanel.Find("Confirm");
-                    if (confirmButtonTransform != null)
-                    {
-                        Button confirmButton = confirmButtonTransform.GetComponent<Button>();
-                        if (confirmButton != null)
-                        {
-                            confirmButton.onClick.AddListener(() =>
-                            {
-                                if (volumeSlider != null)
-                                {
-                                    volumeSlider.value = volumeConfig.Value * 100f;
-                                    ApplyVolumeToMenuMusic(volumeConfig.Value);
-                                    if (menuMusicSource != null && volumeConfig.Value == 0f)
-                                    {
-                                        menuMusicSource.Stop();
-                                    }
-                                }
-                            });
-                        }
-                        else
-                        {
-                            Logger.LogError("Confirm GameObject found, but no Button component!");
-                        }
-                    }
-                    else
-                    {
-                        Logger.LogError("Confirm GameObject not found in SettingsPanel!");
-                    }
                 }
                 else
                 {
@@ -245,8 +184,9 @@ namespace MainMenuMusicVolumeMod
             }
         }
 
-        private void ApplyVolumeToMenuMusic(float volume)
+        private static void ApplyVolumeToMenuMusic(float volume)
         {
+            Logger.LogInfo($"Applying volume to menu music: {volume}");
             bool appliedToRelevantSource = false;
 
             GameObject menuManager = GameObject.Find("MenuManager");
@@ -337,6 +277,19 @@ namespace MainMenuMusicVolumeMod
             {
                 Logger.LogWarning("No relevant AudioSource or AudioMixer found to apply volume");
             }
+            
+            if (menuMusicSource != null && volume == 0f)
+            {
+                menuMusicSource.Stop();
+                volumeConfig.Value = volume;
+                return;
+            }
+
+            if (menuMusicSource != null && menuMusicSource.volume != 0f && volumeConfig.Value == 0f)
+            {
+                menuMusicSource.Play();
+            } 
+            volumeConfig.Value = volume;
         }
 
         [HarmonyPatch]
@@ -346,14 +299,11 @@ namespace MainMenuMusicVolumeMod
             [HarmonyPrefix]
             public static void PreAwake(MenuManager __instance)
             {
-                MainMenuMusicVolumeMod instance = UnityEngine.Object.FindObjectOfType<MainMenuMusicVolumeMod>();
-                if (instance == null) return;
-
                 AudioSource[] sources = __instance.GetComponents<AudioSource>();
                 foreach (var source in sources)
                 {
-                    source.volume = instance.volumeConfig.Value;
-                    if (instance.menuMusicSource == null && source.isPlaying) instance.menuMusicSource = source;
+                    source.volume = MainMenuMusicVolumeMod.volumeConfig.Value;
+                    if (MainMenuMusicVolumeMod.menuMusicSource == null && source.isPlaying) MainMenuMusicVolumeMod.menuMusicSource = source;
                 }
 
                 Transform menu1 = __instance.transform.Find("Menu1");
@@ -362,8 +312,8 @@ namespace MainMenuMusicVolumeMod
                     AudioSource menu1Source = menu1.GetComponent<AudioSource>();
                     if (menu1Source != null)
                     {
-                        menu1Source.volume = instance.volumeConfig.Value;
-                        if (instance.menuMusicSource == null && menu1Source.isPlaying) instance.menuMusicSource = menu1Source;
+                        menu1Source.volume = MainMenuMusicVolumeMod.volumeConfig.Value;
+                        if (MainMenuMusicVolumeMod.menuMusicSource == null && menu1Source.isPlaying) MainMenuMusicVolumeMod.menuMusicSource = menu1Source;
                     }
                 }
             }
@@ -372,14 +322,11 @@ namespace MainMenuMusicVolumeMod
             [HarmonyPrefix]
             public static void PreStart(MenuManager __instance)
             {
-                MainMenuMusicVolumeMod instance = UnityEngine.Object.FindObjectOfType<MainMenuMusicVolumeMod>();
-                if (instance == null) return;
-
                 AudioSource[] sources = __instance.GetComponents<AudioSource>();
                 foreach (var source in sources)
                 {
-                    source.volume = instance.volumeConfig.Value;
-                    if (instance.menuMusicSource == null) instance.menuMusicSource = source;
+                    source.volume = MainMenuMusicVolumeMod.volumeConfig.Value;
+                    if (MainMenuMusicVolumeMod.menuMusicSource == null) MainMenuMusicVolumeMod.menuMusicSource = source;
                 }
 
                 Transform menu1 = __instance.transform.Find("Menu1");
@@ -388,8 +335,8 @@ namespace MainMenuMusicVolumeMod
                     AudioSource menu1Source = menu1.GetComponent<AudioSource>();
                     if (menu1Source != null)
                     {
-                        menu1Source.volume = instance.volumeConfig.Value;
-                        if (instance.menuMusicSource == null && menu1Source.isPlaying) instance.menuMusicSource = menu1Source;
+                        menu1Source.volume = MainMenuMusicVolumeMod.volumeConfig.Value;
+                        if (MainMenuMusicVolumeMod.menuMusicSource == null && menu1Source.isPlaying) MainMenuMusicVolumeMod.menuMusicSource = menu1Source;
                     }
                 }
             }
@@ -398,8 +345,7 @@ namespace MainMenuMusicVolumeMod
             [HarmonyPostfix]
             public static void PatchMainMenuAwake(MenuManager __instance)
             {
-                MainMenuMusicVolumeMod instance = UnityEngine.Object.FindObjectOfType<MainMenuMusicVolumeMod>();
-                if (instance == null || instance.disableSlider.Value) return;
+                if (MainMenuMusicVolumeMod.disableSlider.Value) return;
 
                 GameObject menuContainer = GameObject.Find("Canvas/MenuContainer");
                 if (menuContainer == null) return;
@@ -407,7 +353,7 @@ namespace MainMenuMusicVolumeMod
                 Transform settingsPanel = menuContainer.transform.Find("SettingsPanel");
                 if (settingsPanel == null) return;
 
-                instance.SetupVolumeSlider(settingsPanel);
+                MainMenuMusicVolumeMod.SetupVolumeSlider(settingsPanel);
             }
 
             [HarmonyPatch(typeof(AudioSource), "Play", new Type[] { })]
@@ -419,10 +365,10 @@ namespace MainMenuMusicVolumeMod
 
                 if (SceneManager.GetActiveScene().name == "MainMenu")
                 {
-                    __instance.volume = instance.volumeConfig.Value;
-                    if (__instance.isPlaying && instance.menuMusicSource != __instance)
+                    __instance.volume = MainMenuMusicVolumeMod.volumeConfig.Value;
+                    if (__instance.isPlaying && MainMenuMusicVolumeMod.menuMusicSource != __instance)
                     {
-                        instance.menuMusicSource = __instance;
+                        MainMenuMusicVolumeMod.menuMusicSource = __instance;
                     }
                 }
             }
