@@ -191,16 +191,16 @@ namespace MainMenuMusicVolumeMod
                 volumeSlider = sliderTransform.GetComponent<Slider>();
                 if (volumeSlider != null)
                 {
+                    volumeSlider.onValueChanged.RemoveAllListeners();
+                    volumeSlider.minValue = 0f;
+                    volumeSlider.maxValue = 100f;
+                    
                     SettingsOption settingsOption = sliderTransform.GetComponent<SettingsOption>();
                     if (settingsOption != null)
                     {
                         UnityEngine.Object.Destroy(settingsOption);
                         Logger.LogInfo("Removed SettingsOption component from Slider.");
                     }
-
-                    volumeSlider.onValueChanged.RemoveAllListeners();
-                    volumeSlider.minValue = 0f;
-                    volumeSlider.maxValue = 100f;
 
                     float currentVolume = volumeConfig.Value * 100f;
                     LayoutRebuilder.ForceRebuildLayoutImmediate(volumeSlider.GetComponent<RectTransform>());
