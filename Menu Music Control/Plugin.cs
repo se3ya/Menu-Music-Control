@@ -310,7 +310,9 @@ namespace MainMenuMusicVolumeMod
         {
             Logger.LogInfo($"Applying volume to menu music: {volume} (Save to config: {saveToConfig})");
             bool appliedToRelevantSource = false;
-
+            
+            IngamePlayerSettings.Instance.SettingsAudio.PlayOneShot(GameNetworkManager.Instance.buttonTuneSFX);
+            
             GameObject menuManager = GameObject.Find("MenuManager");
             if (menuManager != null)
             {
