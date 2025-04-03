@@ -98,34 +98,6 @@ namespace MainMenuMusicVolumeMod
             Logger.LogInfo("Startup muting complete.");
         }
 
-        private void Update()
-        {
-            timeSinceStartup += Time.deltaTime;
-
-            string currentScene = SceneManager.GetActiveScene().name;
-            if (currentScene == "InitScene" || currentScene == "MainMenu")
-            {
-                GameObject menuContainer = GameObject.Find("Canvas/MenuContainer");
-                if (menuContainer != null)
-                {
-                    Transform settingsPanel = menuContainer.transform.Find("SettingsPanel");
-                    if (settingsPanel != null && settingsPanel.gameObject.activeInHierarchy && !disableSlider.Value)
-                    {
-                        if (!mainMenuSliderSetup)
-                        {
-                            Logger.LogInfo($"Setting up volume slider in scene: {currentScene}");
-                            SetupVolumeSlider(settingsPanel);
-                            mainMenuSliderSetup = true;
-                        }
-                    }
-                    else
-                    {
-                        mainMenuSliderSetup = false;
-                    }
-                }
-            }
-        }
-
         private void LateUpdate()
         {
             if (mainMenuSliderSetup && volumeSlider != null && !isDraggingSlider && !hasUnconfirmedChanges)
@@ -135,7 +107,7 @@ namespace MainMenuMusicVolumeMod
                 {
                     Logger.LogInfo($"LateUpdate syncing slider value to config: {targetValue}");
                     volumeSlider.value = targetValue;
-                    volumeSlider.SetValueWithoutNotify(targetValue);
+                    volumeSlider.value = targetValue;
                     ApplyVolumeToMenuMusic(volumeConfig.Value, false);
                 }
             }
@@ -209,7 +181,6 @@ namespace MainMenuMusicVolumeMod
                     bool isFirstSetup = instance != null && instance.isFirstTimeSetup;
 
                     volumeSlider.value = currentVolume;
-                    volumeSlider.SetValueWithoutNotify(currentVolume);
 
                     volumeSlider.gameObject.AddComponent<SliderVisualFixer>().Initialize(currentVolume, 0.5f);
 
@@ -420,7 +391,7 @@ namespace MainMenuMusicVolumeMod
 
             if (volumeSlider != null)
             {
-                volumeSlider.SetValueWithoutNotify(volume * 100f);
+                volumeSlider.value = volume * 100f;
             }
         }
 
@@ -441,7 +412,7 @@ namespace MainMenuMusicVolumeMod
                 Slider slider = GetComponent<Slider>();
                 if (slider != null)
                 {
-                    slider.SetValueWithoutNotify(targetValue);
+                    slider.value = targetValue;
                     MainMenuMusicVolumeMod.Logger.LogInfo($"SliderVisualFixer updated slider to: {targetValue} after delay of {delay} seconds");
                 }
                 Destroy(this);
@@ -570,7 +541,7 @@ namespace MainMenuMusicVolumeMod
                     hasUnconfirmedChanges = false;
                     if (volumeSlider != null)
                     {
-                        volumeSlider.SetValueWithoutNotify(volumeConfig.Value * 100f);
+                        volumeSlider.value = volumeConfig.Value * 100f;
                     }
                     if (changesNotAppliedText != null)
                     {
