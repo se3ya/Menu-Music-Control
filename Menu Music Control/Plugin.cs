@@ -201,7 +201,6 @@ namespace MainMenuMusicVolumeMod
                     volumeSlider.onValueChanged.RemoveAllListeners();
                     volumeSlider.minValue = 0f;
                     volumeSlider.maxValue = 100f;
-                    volumeSlider.wholeNumbers = false;
 
                     float currentVolume = volumeConfig.Value * 100f;
                     LayoutRebuilder.ForceRebuildLayoutImmediate(volumeSlider.GetComponent<RectTransform>());
