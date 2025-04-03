@@ -406,13 +406,10 @@ namespace MainMenuMusicVolumeMod
                 {
                     menuMusicSource.Stop();
                 }
-                else if (!menuMusicSource.isPlaying && volumeConfig.Value == 0f)
+                
+                if (!menuMusicSource.isPlaying && volume != 0f)
                 {
-                    MainMenuMusicVolumeMod instance = UnityEngine.Object.FindFirstObjectByType<MainMenuMusicVolumeMod>();
-                    if (instance == null || !instance.isInitialStartup)
-                    {
-                        menuMusicSource.Play();
-                    }
+                    menuMusicSource.Play();
                 }
             }
 
