@@ -516,9 +516,8 @@ namespace MainMenuMusicVolumeMod
                 ApplyVolumeToAllMenuSources(__instance);
             }
 
-            [HarmonyPatch(typeof(MenuManager), "Awake")]
+            [HarmonyPatch(typeof(MenuManager), "Start")]
             [HarmonyPostfix]
-            [HarmonyPriority(Priority.Low)]
             public static void PatchMainMenuAwake(MenuManager __instance)
             {
                 if (MainMenuMusicVolumeMod.disableSlider.Value) return;
