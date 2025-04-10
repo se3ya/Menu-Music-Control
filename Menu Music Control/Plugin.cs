@@ -98,34 +98,6 @@ namespace MainMenuMusicVolumeMod
             Logger.LogInfo("Startup muting complete.");
         }
 
-        private void Update()
-        {
-            timeSinceStartup += Time.deltaTime;
-
-            string currentScene = SceneManager.GetActiveScene().name;
-            if (currentScene == "InitScene" || currentScene == "MainMenu")
-            {
-                GameObject menuContainer = GameObject.Find("Canvas/MenuContainer");
-                if (menuContainer != null)
-                {
-                    Transform settingsPanel = menuContainer.transform.Find("SettingsPanel");
-                    if (settingsPanel != null && settingsPanel.gameObject.activeInHierarchy && !disableSlider.Value)
-                    {
-                        if (!mainMenuSliderSetup)
-                        {
-                            Logger.LogInfo($"Setting up volume slider in scene: {currentScene}");
-                            SetupVolumeSlider(settingsPanel);
-                            mainMenuSliderSetup = true;
-                        }
-                    }
-                    else
-                    {
-                        mainMenuSliderSetup = false;
-                    }
-                }
-            }
-        }
-
         private void LateUpdate()
         {
             if (mainMenuSliderSetup && volumeSlider != null && !isDraggingSlider && !hasUnconfirmedChanges)
@@ -135,7 +107,7 @@ namespace MainMenuMusicVolumeMod
                 {
                     Logger.LogInfo($"LateUpdate syncing slider value to config: {targetValue}");
                     volumeSlider.value = targetValue;
-                    volumeSlider.SetValueWithoutNotify(targetValue);
+                    volumeSlider.value = targetValue;
                     ApplyVolumeToMenuMusic(volumeConfig.Value, false);
                 }
             }
@@ -191,17 +163,16 @@ namespace MainMenuMusicVolumeMod
                 volumeSlider = sliderTransform.GetComponent<Slider>();
                 if (volumeSlider != null)
                 {
+                    volumeSlider.onValueChanged.RemoveAllListeners();
+                    volumeSlider.minValue = 0f;
+                    volumeSlider.maxValue = 100f;
+                    
                     SettingsOption settingsOption = sliderTransform.GetComponent<SettingsOption>();
                     if (settingsOption != null)
                     {
                         UnityEngine.Object.Destroy(settingsOption);
                         Logger.LogInfo("Removed SettingsOption component from Slider.");
                     }
-
-                    volumeSlider.onValueChanged.RemoveAllListeners();
-                    volumeSlider.minValue = 0f;
-                    volumeSlider.maxValue = 100f;
-                    volumeSlider.wholeNumbers = false;
 
                     float currentVolume = volumeConfig.Value * 100f;
                     LayoutRebuilder.ForceRebuildLayoutImmediate(volumeSlider.GetComponent<RectTransform>());
@@ -210,7 +181,6 @@ namespace MainMenuMusicVolumeMod
                     bool isFirstSetup = instance != null && instance.isFirstTimeSetup;
 
                     volumeSlider.value = currentVolume;
-                    volumeSlider.SetValueWithoutNotify(currentVolume);
 
                     volumeSlider.gameObject.AddComponent<SliderVisualFixer>().Initialize(currentVolume, 0.5f);
 
@@ -311,7 +281,9 @@ namespace MainMenuMusicVolumeMod
         {
             Logger.LogInfo($"Applying volume to menu music: {volume} (Save to config: {saveToConfig})");
             bool appliedToRelevantSource = false;
-
+            
+            IngamePlayerSettings.Instance.SettingsAudio.PlayOneShot(GameNetworkManager.Instance.buttonTuneSFX);
+            
             GameObject menuManager = GameObject.Find("MenuManager");
             if (menuManager != null)
             {
@@ -405,13 +377,10 @@ namespace MainMenuMusicVolumeMod
                 {
                     menuMusicSource.Stop();
                 }
-                else if (!menuMusicSource.isPlaying && volumeConfig.Value == 0f)
+                
+                if (!menuMusicSource.isPlaying && volume != 0f)
                 {
-                    MainMenuMusicVolumeMod instance = UnityEngine.Object.FindFirstObjectByType<MainMenuMusicVolumeMod>();
-                    if (instance == null || !instance.isInitialStartup)
-                    {
-                        menuMusicSource.Play();
-                    }
+                    menuMusicSource.Play();
                 }
             }
 
@@ -422,7 +391,7 @@ namespace MainMenuMusicVolumeMod
 
             if (volumeSlider != null)
             {
-                volumeSlider.SetValueWithoutNotify(volume * 100f);
+                volumeSlider.value = volume * 100f;
             }
         }
 
@@ -443,7 +412,7 @@ namespace MainMenuMusicVolumeMod
                 Slider slider = GetComponent<Slider>();
                 if (slider != null)
                 {
-                    slider.SetValueWithoutNotify(targetValue);
+                    slider.value = targetValue;
                     MainMenuMusicVolumeMod.Logger.LogInfo($"SliderVisualFixer updated slider to: {targetValue} after delay of {delay} seconds");
                 }
                 Destroy(this);
@@ -515,9 +484,8 @@ namespace MainMenuMusicVolumeMod
                 ApplyVolumeToAllMenuSources(__instance);
             }
 
-            [HarmonyPatch(typeof(MenuManager), "Awake")]
+            [HarmonyPatch(typeof(MenuManager), "Start")]
             [HarmonyPostfix]
-            [HarmonyPriority(Priority.Low)]
             public static void PatchMainMenuAwake(MenuManager __instance)
             {
                 if (MainMenuMusicVolumeMod.disableSlider.Value) return;
@@ -573,7 +541,7 @@ namespace MainMenuMusicVolumeMod
                     hasUnconfirmedChanges = false;
                     if (volumeSlider != null)
                     {
-                        volumeSlider.SetValueWithoutNotify(volumeConfig.Value * 100f);
+                        volumeSlider.value = volumeConfig.Value * 100f;
                     }
                     if (changesNotAppliedText != null)
                     {
